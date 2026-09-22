@@ -17,6 +17,12 @@ from gideon.sdk.tool import ToolResult
 
 import provider as provider_mod
 from provider import PaxeerTrackerProvider, create_paxeer_provider
+from tracker import config as watchlist
+
+# The watchlist the stub seam resolves — remote provenance, like a healthy run.
+SOURCES = watchlist.load_bundled()
+SOURCES["_provenance"] = {"source": "remote", "version": SOURCES["version"],
+                          "url": watchlist.CANONICAL_URL, "error": None}
 
 
 def snap(sha):
@@ -72,7 +78,8 @@ class ProviderContractTest(unittest.TestCase):
 
     def test_list_tools_shape(self):
         tools = asyncio.run(PaxeerTrackerProvider().list_tools())
-        self.assertEqual([t.name for t in tools], ["paxeer_sweep", "paxeer_brief"])
+        self.assertEqual([t.name for t in tools],
+                         ["paxeer_sweep", "paxeer_brief", "paxeer_sources"])
         for t in tools:
             self.assertEqual(t.provider, "paxeer-dev-tracker")
             self.assertFalse(t.requires_approval)
@@ -101,6 +108,7 @@ class ProviderBehaviourTest(unittest.TestCase):
         fake_state.load_previous.return_value = previous
         with mock.patch.object(provider_mod, "GithubClient"), \
                 mock.patch.object(provider_mod, "collect", return_value=collected) as collect, \
+                mock.patch.object(provider_mod.watchlist, "load", return_value=SOURCES), \
                 mock.patch.object(provider_mod, "state", fake_state):
             result = asyncio.run(PaxeerTrackerProvider().invoke(name, args))
         return result, collect, fake_state
@@ -130,6 +138,20 @@ class ProviderBehaviourTest(unittest.TestCase):
         result, collect, _ = self._invoke("paxeer_sweep", {"mode": "full"})
         self.assertTrue(result.success)
         self.assertTrue(collect.call_args.kwargs.get("full"))
+
+    def test_sweep_passes_resolved_watchlist_to_collect(self):
+        result, collect, _ = self._invoke("paxeer_sweep", {})
+        self.assertTrue(result.success)
+        self.assertIs(collect.call_args.kwargs.get("sources"), SOURCES)
+
+    def test_sources_tool_reports_accounts_and_extension_path(self):
+        result, _, _ = self._invoke("paxeer_sources", {})
+        self.assertTrue(result.success)
+        self.assertIn("Sidiora-Labs (org)", result.output)
+        self.assertIn("MachineCity (user)", result.output)
+        self.assertIn("sources.json", result.output)
+        self.assertIn("How to extend", result.output)
+        self.assertIn("[verified]", result.output)
 
     def test_first_sweep_reports_baseline(self):
         result, _, _ = self._invoke("paxeer_sweep", {}, latest=None, previous={})

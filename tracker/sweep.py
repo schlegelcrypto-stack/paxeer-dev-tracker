@@ -1,35 +1,47 @@
-"""One sweep across the eight accounts plus the main repository."""
+"""One sweep across the watched accounts plus the main repository.
+
+The watchlist comes from ``sources.json`` (:mod:`tracker.config`) — fetched from
+the canonical URL at run time unless the caller passes a resolved copy — so every
+install sweeps the same accounts, endpoints and repos without re-installing.
+"""
 
 import base64
 import re
 
-from . import accounts, endpoints
+from . import config, endpoints
 from .github_client import GithubClient
 from .ledger import parse_board, parse_ledger
 
 
-def collect(gh, full=False, timeout=None):
+def collect(gh, full=False, timeout=None, sources=None):
     """One sweep: the main repo and endpoints always; every tracked account and
     repo when ``full``. This is the single composition seam — the CLI and the
     tool provider both build their snapshots here."""
+    if sources is None:
+        sources = config.load()
     snap = {"generated_by": "paxeer-dev-tracker"}
-    snap["main"] = sweep_main(gh)
+    snap["sources"] = sources.get("_provenance",
+                                 {"source": "caller", "version": sources.get("version")})
+    snap["watch"] = list(sources.get("watch", []))
+    snap["main"] = sweep_main(gh, sources)
     if full:
-        snap.update(sweep_repos(gh))
+        snap.update(sweep_repos(gh, sources))
     else:
         snap.setdefault("accounts", [])
         snap.setdefault("repos", [])
         snap.setdefault("suspect", [])
     kw = {"timeout": timeout} if timeout else {}
-    snap["endpoints"] = [endpoints.probe(u, **kw) for u in accounts.ENDPOINTS]
-    snap["packages"] = {accounts.MAIN_REPO_OWNER: endpoints.packages(gh, accounts.MAIN_REPO_OWNER)}
+    snap["endpoints"] = [endpoints.probe(u, **kw) for u in sources.get("endpoints", [])]
+    snap["packages"] = {owner: endpoints.packages(gh, owner)
+                        for owner in sources.get("packages_watch", [])}
     return snap
 
 
-def sweep_repos(gh):
-    """Every repo on every tracked account. Org vs user endpoints are not interchangeable."""
+def sweep_repos(gh, cfg):
+    """Every repo on every watched account. Org vs user endpoints are not interchangeable."""
     out = {"accounts": [], "repos": [], "suspect": []}
-    for login, kind in accounts.ACCOUNTS:
+    excluded = set(cfg.get("excluded_owners", []))
+    for login, kind in config.account_pairs(cfg):
         res = gh.list_org_repos(login) if kind == "org" else gh.list_user_repos(login)
         items = res.get("items", [])
         row = {"account": login, "kind": kind, "count": len(items),
@@ -43,7 +55,7 @@ def sweep_repos(gh):
             if not GithubClient.require_repo_object(r):
                 out["suspect"].append("redirect object instead of repo data on %s" % login)
                 continue
-            if r.get("owner", {}).get("login") in accounts.EXCLUDED_OWNERS:
+            if r.get("owner", {}).get("login") in excluded:
                 continue
             out["repos"].append({
                 "full_name": r["full_name"],
@@ -61,27 +73,36 @@ def sweep_repos(gh):
     return out
 
 
-def resolve_main_repo(gh):
+def resolve_main_repo(gh, cfg=None):
     """Resolve the main repo's CURRENT name from the org listing. Never trust a zero."""
-    res = gh.list_org_repos(accounts.MAIN_REPO_OWNER)
+    main = (cfg or config.load_bundled())["main_repo"]
+    aliases = list(main["aliases"])
+    res = gh.list_org_repos(main["owner"])
     by_name = {r["name"].lower(): r for r in res.get("items", [])
                if GithubClient.require_repo_object(r)}
-    for alias in accounts.MAIN_REPO_ALIASES:
+    for alias in aliases:
         hit = by_name.get(alias.lower())
         if hit:
-            return hit, [a for a in accounts.MAIN_REPO_ALIASES if a != hit["name"]]
-    # Fuzzy fallback: renamed again since this code last shipped.
+            return hit, [a for a in aliases if a != hit["name"]]
+    # Fuzzy fallback: renamed again since this config last shipped.
     for name, r in by_name.items():
         if "network" in name or "layerx" in name or "paxeer" in name:
-            return r, list(accounts.MAIN_REPO_ALIASES)
-    return None, list(accounts.MAIN_REPO_ALIASES)
+            return r, aliases
+    return None, aliases
 
 
-LANE_RE = re.compile(r"from\s+%s/((?:lane/)?[A-Za-z0-9._/-]+)" % re.escape(accounts.MAIN_REPO_OWNER), re.I)
+def lane_re(owner):
+    return re.compile(r"from\s+%s/((?:lane/)?[A-Za-z0-9._/-]+)" % re.escape(owner), re.I)
 
 
-def sweep_main(gh, n_commits=80):
-    repo, stale_names = resolve_main_repo(gh)
+# Kept for older imports/tests: the bundled owner's pattern.
+LANE_RE = lane_re(config.load_bundled()["main_repo"]["owner"])
+
+
+def sweep_main(gh, cfg=None, n_commits=80):
+    cfg = cfg or config.load_bundled()
+    main = cfg["main_repo"]
+    repo, stale_names = resolve_main_repo(gh, cfg)
     if not repo:
         return {"error": "main repo not found in org listing", "stale_names": stale_names}
     full = repo["full_name"]
@@ -94,11 +115,12 @@ def sweep_main(gh, n_commits=80):
         return out
     lanes = {}
     seen = set()
+    pat = lane_re(main["owner"])
     for c in commits:
         sha = c.get("sha", "")[:8]
         msg = (c.get("commit", {}).get("message") or "")
         when = c.get("commit", {}).get("committer", {}).get("date")
-        for m in LANE_RE.finditer(msg):
+        for m in pat.finditer(msg):
             lane = m.group(1).split("/")[-1] if m.group(1).startswith("lane/") else m.group(1)
             lanes[lane] = lanes.get(lane, 0) + 1
         key = (msg.splitlines()[0] if msg else "", when)
@@ -114,17 +136,18 @@ def sweep_main(gh, n_commits=80):
         }
     phases = {}
     unknown = []
+    known = set(cfg.get("lane_phases", []))
     for lane in lanes:
         phase = lane.split("-")[0]
         phases[phase] = phases.get(phase, 0) + 1
-        if phase not in accounts.KNOWN_LANE_PHASES:
+        if phase not in known:
             unknown.append(lane)
     out["lanes"], out["lane_phases"], out["unknown_phases"] = lanes, phases, unknown
 
-    board, _ = gh.get("/repos/%s/contents/%s" % (full, accounts.BOARD_PATH))
+    board, _ = gh.get("/repos/%s/contents/%s" % (full, main["board_path"]))
     btext = _fetch_text(gh, board)
     out["board"] = parse_board(btext) if btext else {"error": board.get("message")}
-    ledger, _ = gh.get("/repos/%s/contents/%s" % (full, accounts.LEDGER_PATH))
+    ledger, _ = gh.get("/repos/%s/contents/%s" % (full, main["ledger_path"]))
     ltext = _fetch_text(gh, ledger)
     out["ledger"] = parse_ledger(ltext) if ltext else {"error": ledger.get("message")}
     out["open_prs"] = count_open_prs(gh, full)

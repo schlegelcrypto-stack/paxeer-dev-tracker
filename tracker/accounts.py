@@ -1,37 +1,29 @@
-"""The eight tracked accounts. Org vs user matters: wrong endpoint silently returns empty."""
+"""Back-compat shim: the watchlist now lives in ``sources.json`` (see
+:mod:`tracker.config`). These names are derived from the BUNDLED copy and exist so
+older imports keep working; sweep-time code passes the resolved config explicitly,
+because that is the copy fetched from the canonical URL."""
 
-# (login, kind) -- kind is 'org' or 'user'. Only two are orgs.
-ACCOUNTS = [
-    ("Sidiora-Labs", "org"),
-    ("Paxeer-Network", "org"),
-    ("dev-paxeer", "user"),
-    ("Sidiora-Technologies", "user"),
-    ("paxlabs-inc", "user"),
-    ("jg-sidioralabs", "user"),
-    ("matrix-agent-neo", "user"),
-    ("MachineCity", "user"),
-]
+from .config import account_pairs, load_bundled
+
+_DEFAULTS = load_bundled()
+_MAIN = _DEFAULTS["main_repo"]
+
+# (login, kind) -- kind is 'org' or 'user'. Wrong endpoint silently returns empty.
+ACCOUNTS = account_pairs(_DEFAULTS)
 
 # Schlegel's own org: ecosystem intel excludes it on purpose.
-EXCLUDED_OWNERS = {"schlegelcrypto-stack"}
+EXCLUDED_OWNERS = set(_DEFAULTS.get("excluded_owners", []))
 
-# The main development repository. It has been renamed twice
-# (LayerX-Protocol -> LayerX-Network -> Paxeer-X-Network), so it is resolved
-# by discovery, never by hard-coded name alone.
-MAIN_REPO_OWNER = "Sidiora-Labs"
-MAIN_REPO_ALIASES = ("Paxeer-X-Network", "LayerX-Network", "LayerX-Protocol")
+# The main development repository, renamed twice already, resolved by discovery.
+MAIN_REPO_OWNER = _MAIN["owner"]
+MAIN_REPO_ALIASES = tuple(_MAIN["aliases"])
 
 # Files read from the main repo on every sweep.
-BOARD_PATH = "spec/layerx-beta/tasks.md"
-LEDGER_PATH = "spec/layerx-beta/qualification.kvx"
+BOARD_PATH = _MAIN["board_path"]
+LEDGER_PATH = _MAIN["ledger_path"]
 
 # Lane phase vocabulary observed so far; new prefixes are surfaced, not swallowed.
-KNOWN_LANE_PHASES = ("tn", "unify", "fix", "docs", "hosts", "naming")
+KNOWN_LANE_PHASES = tuple(_DEFAULTS.get("lane_phases", []))
 
 # Public endpoints whose liveness is the headline signal.
-ENDPOINTS = [
-    "https://api.layerxnet.ai",
-    "https://faucet.layerxnet.ai",
-    "https://gideon.centra.ag",
-    "https://agentneo.app",
-]
+ENDPOINTS = list(_DEFAULTS.get("endpoints", []))

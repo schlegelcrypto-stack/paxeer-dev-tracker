@@ -39,6 +39,10 @@ def main():
     prev = state.load_latest()
     path = state.save(snap, label=args.command)
     print("snapshot: %s" % path)
+    src = snap.get("sources", {})
+    print("sources: watchlist v%s (%s)%s"
+          % (src.get("version"), src.get("source"),
+             (" — " + src["error"]) if src.get("error") else ""))
 
     if args.command == "all":
         brief = render_brief(snap, prev or state.load_previous())

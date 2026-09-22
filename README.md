@@ -52,12 +52,31 @@ environment.
 `app.json` is the manifest. Install from the Gideon App Store, then the daily
 automation runs `python3 run.py all` and delivers the brief.
 
-Once installed it registers two agent tools:
+Once installed it registers three agent tools:
 
 - `paxeer_sweep` — pull fresh state from the public GitHub API, save the
   snapshot, and return the briefing (`mode: "quick"` ~10s or `mode: "full"` ~50s).
 - `paxeer_brief` — render the briefing from the last saved snapshots with no
   network call.
+- `paxeer_sources` — show the watchlist in effect (accounts, websites, repos),
+  where it was fetched from, and how to extend it.
+
+## Extending the watchlist
+
+The tracked accounts, websites and repos are **data, not code**: one canonical
+[`sources.json`](./sources.json), fetched at run time by every install. To add a
+developer account, a website, or a repo to watch:
+
+1. Edit `sources.json` — one entry, e.g. `{"login": "new-dev", "kind": "user"}`.
+2. Bump `version`.
+3. Commit (or open a PR) on `main`.
+
+Every install fetches that file on its next sweep — the change reaches all users
+without a re-install, and each brief stamps which watchlist version produced it
+(`[verified]` when fetched from the canonical URL, `[reported]` on fallback), so a
+watchlist change can never silently explain a diff. Resolution order: canonical
+URL → last-fetched cache → bundled copy. The file is strictly schema-validated
+(unknown keys rejected): it can widen what is watched, nothing more.
 
 ## Scope and ethics
 

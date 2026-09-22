@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "version": 1,
+  "updated": "2026-09-22",
+  "note": "The canonical watchlist. Every install fetches this file at run time, so a change here reaches all users on their next sweep -- no re-install. To add a developer account, website, or repo: edit this file, bump 'version', open a PR. Data only, never code.",
+  "accounts": [
+    {"login": "Sidiora-Labs", "kind": "org"},
+    {"login": "Paxeer-Network", "kind": "org"},
+    {"login": "dev-paxeer", "kind": "user"},
+    {"login": "Sidiora-Technologies", "kind": "user"},
+    {"login": "paxlabs-inc", "kind": "user"},
+    {"login": "jg-sidioralabs", "kind": "user"},
+    {"login": "matrix-agent-neo", "kind": "user"},
+    {"login": "MachineCity", "kind": "user"}
+  ],
+  "excluded_owners": ["schlegelcrypto-stack"],
+  "main_repo": {
+    "owner": "Sidiora-Labs",
+    "aliases": ["Paxeer-X-Network", "LayerX-Network", "LayerX-Protocol"],
+    "board_path": "spec/layerx-beta/tasks.md",
+    "ledger_path": "spec/layerx-beta/qualification.kvx"
+  },
+  "endpoints": [
+    "https://api.layerxnet.ai",
+    "https://faucet.layerxnet.ai",
+    "https://gideon.centra.ag",
+    "https://agentneo.app"
+  ],
+  "packages_watch": ["Sidiora-Labs"],
+  "lane_phases": ["tn", "unify", "fix", "docs", "hosts", "naming"],
+  "watch": [
+    "Either gateway returning 200 -- a backend finally serving.",
+    "A clean qualification run writing new gate records on a tagged revision.",
+    "The fix- lane phase winding down, hosts-/deploy lanes increasing.",
+    "Anything appearing in the Sidiora-Labs package list -- the first published image.",
+    "Third-party SID solvers, or SID's address in the bridge module.",
+    "New repos on the tracked accounts."
+  ]
+}

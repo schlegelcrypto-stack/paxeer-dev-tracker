@@ -1,8 +1,8 @@
 {
   "name": "paxeer-dev-tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "displayName": "Paxeer Dev Tracker",
-  "description": "A daily engineering briefing for Paxeer. Pulls Sidiora-Labs and LayerX-Network from the public GitHub API — pushes, merged PRs (with what changed), open-PR and lane rollups, the latest Paxeer-X-Network commit and stalls, the board, the gates, the observations — and reports what is new since yesterday in plain English. Two agent tools: paxeer_sweep pulls fresh state and briefs; paxeer_brief renders the last snapshot instantly. No key, no account: run it on a schedule and watch it in plain English.",
+  "description": "A daily engineering briefing for Paxeer. Pulls the watched Sidiora/LayerX accounts from the public GitHub API — pushes, merged PRs (with what changed), open-PR and lane rollups, the latest Paxeer-X-Network commit and stalls, the board, the gates, the observations — and reports what is new since yesterday in plain English. The watchlist (accounts, websites, repos) lives in one canonical sources.json fetched at run time, so one edit reaches every install. Three agent tools: paxeer_sweep pulls fresh state and briefs; paxeer_brief renders the last snapshot instantly; paxeer_sources shows the watchlist and how to extend it. No key, no account: run it on a schedule and watch it in plain English.",
   "icon": "GitPullRequest",
   "author": "schlegelcrypto",
   "license": "MIT",
@@ -39,6 +39,25 @@
             "tags": [
               "advanced"
             ]
+          }
+        },
+        "sources_mode": {
+          "type": "string",
+          "enum": ["remote", "local"],
+          "default": "remote",
+          "x-meta": {
+            "label": "Watchlist source",
+            "help": "'remote' (default) fetches the canonical sources.json at run time, so every install sweeps the same accounts, websites and repos. 'local' uses only the bundled copy (air-gapped runs).",
+            "tags": ["advanced"]
+          }
+        },
+        "sources_url": {
+          "type": "string",
+          "default": "",
+          "x-meta": {
+            "label": "Watchlist URL override",
+            "help": "Optional: fetch the watchlist from a different URL (e.g. a fork or a pinned commit). Empty = the canonical sources.json on main.",
+            "tags": ["advanced"]
           }
         }
       }

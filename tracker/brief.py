@@ -29,7 +29,8 @@ def render_brief(curr, prev=None, corrections=None, watch=None):
     lines.extend(detail_section(curr))
     lines.append("")
     lines.append("## Watch list")
-    lines.extend(watch_section(curr, watch))
+    lines.extend(watch_section(curr, watch if watch is not None
+                               else (curr.get("watch") or None)))
     if corrections:
         lines.append("")
         lines.append("## Corrections")
@@ -37,6 +38,16 @@ def render_brief(curr, prev=None, corrections=None, watch=None):
             lines.append("- **Corrected:** %s" % c)
     lines.append("")
     lines.append("## Method notes")
+    prov = curr.get("sources") or {}
+    label = {"remote": "fetched from the canonical sources.json",
+             "cache": "last-fetched copy of sources.json",
+             "bundled": "bundled fallback — may lag the canonical watchlist",
+             "caller": "caller-supplied"}.get(prov.get("source"), prov.get("source", "unknown"))
+    marker = "[verified]" if prov.get("source") == "remote" else "[reported]"
+    src_line = "- Sources: watchlist v%s — %s %s" % (prov.get("version", "?"), label, marker)
+    if prov.get("error"):
+        src_line += " (%s)" % prov["error"]
+    lines.append(src_line)
     for s in curr.get("suspect", []):
         lines.append("- ⚠️ %s — result marked suspect, not reported as a finding." % s)
     lines.append("- `[verified]` = retrieved from code/API this sweep. `[reported]` = team claim, unverified.")
