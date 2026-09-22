@@ -1,0 +1,47 @@
+{
+  "name": "paxeer-dev-tracker",
+  "version": "0.1.0",
+  "displayName": "Paxeer Dev Tracker",
+  "description": "A daily engineering briefing for Paxeer. Pulls Sidiora-Labs and LayerX-Network from the public GitHub API — pushes, merged PRs (with what changed), open-PR and lane rollups, the latest Paxeer-X-Network commit and stalls, the board, the gates, the observations — and reports what is new since yesterday in plain English. Two agent tools: paxeer_sweep pulls fresh state and briefs; paxeer_brief renders the last snapshot instantly. No key, no account: run it on a schedule and watch it in plain English.",
+  "icon": "GitPullRequest",
+  "author": "schlegelcrypto",
+  "license": "MIT",
+  "tags": [
+    "tool",
+    "tracker",
+    "paxeer",
+    "github"
+  ],
+  "loggerRoots": [
+    "paxeer-dev-tracker"
+  ],
+  "permissions": {
+    "network": true,
+    "storage": true
+  },
+  "provider": {
+    "type": "tool",
+    "implementation": "provider:create_paxeer_provider",
+    "capabilities": [
+      "tracker"
+    ],
+    "settingsSchema": {
+      "type": "object",
+      "properties": {
+        "timeout_secs": {
+          "type": "integer",
+          "default": 20,
+          "minimum": 2,
+          "maximum": 120,
+          "x-meta": {
+            "label": "Request timeout",
+            "help": "Seconds to wait for each GitHub request before giving up (2–120). Unauthenticated GitHub allows 60 requests/hour; a quick sweep uses ~5, a full sweep ~25.",
+            "tags": [
+              "advanced"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
