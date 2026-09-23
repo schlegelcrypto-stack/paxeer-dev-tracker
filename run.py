@@ -11,9 +11,6 @@ Reads GITHUB_TOKEN from the environment if present. Never writes a secret to dis
 
 import argparse
 import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from tracker import state
 from tracker.brief import render_brief

